@@ -9,6 +9,7 @@ import time
 import sys
 import cv2
 import numpy as np
+from PIL import Image, ImageDraw
 
 from character_detector import HanNomOCR
 from mean_average_precision import MetricBuilder
@@ -49,11 +50,11 @@ def read_label(label_file):
             w, h = img.shape[1], img.shape[0]
             x = [(float)(w.strip()) for w in tmp]
 
-            x1 = int(x[1] * w)
-            width = int(x[3] * w)
+            x1 = int(x[1] * 640)
+            width = int(x[3] * 640)
 
-            y1 = int(x[2] * h)
-            height = int(x[4] * h)
+            y1 = int(x[2] * 640)
+            height = int(x[4] * 640)
 
             gt += [(x1-width//2, y1-height//2, x1+width//2, y1+height//2, 0, 0, 0)]
 
@@ -94,11 +95,15 @@ if __name__ == "__main__":
 
         total += 1
         img = cv2.imread(os.path.join(input_folder, filename))
+        img_detect = Image.open(os.path.join(input_folder, filename))
         targets = read_label(os.path.join(label_folder, filename[:-4] + ".txt"))
         print(img.shape)
 
-        list_outputs = detector.detect(img)
+        list_outputs = detector.detect(img_detect.resize((640, 640)))
         preds = get_predict(list_outputs)
+
+        # print("target: ", targets)
+        # print("preds: ", preds)
 
         metric_fn = MetricBuilder.build_evaluation_metric("map_2d", async_mode=True, num_classes=1)
         metric_fn.add(preds, targets)

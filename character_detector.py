@@ -176,24 +176,33 @@ label_test = \
 """
 
 import numpy as np
+from ultralytics.models.yolo import YOLO
+# from PIL import ImageDraw
 
-def read_label(img, str_output):
-    gt = []
-    for line in str_output.strip().split("\n"):
-        tmp = line.strip().split(' ')
+# def read_label(img, str_output):
+#     gt = []
+#     for line in str_output.strip().split("\n"):
+#         tmp = line.strip().split(' ')
 
-        w, h = img.shape[1], img.shape[0]
-        x = [(float)(w.strip()) for w in tmp]
+#         w, h = img.shape[1], img.shape[0]
+#         x = [(float)(w.strip()) for w in tmp]
 
-        x1 = int(x[1] * w)
-        width = int(x[3] * w)
+#         x1 = int(x[1] * w)
+#         width = int(x[3] * w)
 
-        y1 = int(x[2] * h)
-        height = int(x[4] * h)
+#         y1 = int(x[2] * h)
+#         height = int(x[4] * h)
 
-        gt += [(x1, y1, width, height, 0, 0, 0)]
+#         gt += [(x1, y1, width, height, 0, 0, 0)]
 
-    return gt
+#     return gt
+
+# def visualize_predict(img, bboxes):
+#     draw = ImageDraw.Draw(img)
+#     for bbox in bboxes:
+#         x, y, w, h = bbox
+#         draw.rectangle((x - w//2, y - h//2, x+w//2, y+h//2), outline='red', width=2)
+#     img.save('image_with_bboxes.jpg')
 
 class HanNomOCR:
 
@@ -207,16 +216,45 @@ class HanNomOCR:
         np.random.seed(1)
 
     def detect(self, img):
-        base_outputs = read_label(img, label_test)
-        noise = np.random.randint(0, self.noise, size=(len(base_outputs), 4)) - (self.noise // 2)
-        preds = []
+        model = YOLO(r"HanNom.pt")
+        predictions = model.predict(img, save=False, imgsz=640, conf=0.5)
+        output = []
+        for prediction in predictions:
+            boxes = prediction.boxes
+            for box in boxes:
+                bbox = box.xywh[0].numpy()
+                bbox = np.rint(bbox).astype(int)
+                output.append(bbox)
+            # prediction.show()
 
-        for i in range(len(base_outputs)):
-            confidence = np.sum(np.abs(noise[i, :]))
-            confidence = 1 - 1.0*confidence/200
-            preds += [(confidence, base_outputs[i][0] + noise[i][0],
-                              base_outputs[i][1] + noise[i][1],
-                              base_outputs[i][2] + noise[i][2],
-                              base_outputs[i][3] + noise[i][3])]
+        # noise = np.random.randint(0, self.noise, size=(len(output), 4)) - (self.noise // 2)
+        # preds_without_noise = []
+        preds = []
+        for i in range(len(output)):
+            preds += [(0.5, output[i][0],
+                    output[i][1],
+                    output[i][2],
+                    output[i][3])]
+            
+            # preds_without_noise += [(output[i][0],
+            #                   output[i][1],
+            #                   output[i][2],
+            #                   output[i][3])]
+
+        # base_outputs = read_label(img, label_test)
+        # noise = np.random.randint(0, self.noise, size=(len(base_outputs), 4)) - (self.noise // 2)
+        # preds = []
+
+        # for i in range(len(base_outputs)):
+        #     confidence = np.sum(np.abs(noise[i, :]))
+        #     confidence = 1 - 1.0*confidence/200
+        #     preds += [(confidence, base_outputs[i][0] + noise[i][0],
+        #                       base_outputs[i][1] + noise[i][1],
+        #                       base_outputs[i][2] + noise[i][2],
+        #                       base_outputs[i][3] + noise[i][3])]
+
+        # visualize_predict(img, preds_without_noise)
+        
         # List of confidence, xcenter, ycenter, width, height
         return np.array(preds)
+
